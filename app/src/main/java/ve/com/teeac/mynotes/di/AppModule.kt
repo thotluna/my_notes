@@ -9,8 +9,7 @@ import dagger.hilt.components.SingletonComponent
 import ve.com.teeac.mynotes.feature_note.data.data_source.NotesDatabase
 import ve.com.teeac.mynotes.feature_note.data.repository.NotesRepositoryImpl
 import ve.com.teeac.mynotes.feature_note.domain.repository.NoteRepository
-import ve.com.teeac.mynotes.feature_note.domain.use_cases.GetListNotes
-import ve.com.teeac.mynotes.feature_note.domain.use_cases.NotesUseCases
+import ve.com.teeac.mynotes.feature_note.domain.use_cases.*
 import javax.inject.Singleton
 
 @Module
@@ -37,7 +36,10 @@ object AppModule {
     @Singleton
     fun provideNoteUseCases(repository: NoteRepository): NotesUseCases {
         return NotesUseCases(
-            getListNotes = GetListNotes(repository)
+            getListNotes = GetListNotes(repository),
+            getNote = GetNote(repository),
+            addNote = AddNote(repository),
+            deleteNotes = DeleteNote(repository)
         )
     }
 

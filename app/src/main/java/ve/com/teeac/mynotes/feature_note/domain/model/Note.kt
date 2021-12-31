@@ -7,14 +7,17 @@ import ve.com.teeac.mynotes.ui.theme.*
 @Entity
 data class Note(
     @PrimaryKey
-    val id: Int?,
-    val title: String,
-    val content: String,
-    val timestamp: Long,
-    val color: Int
+    val id: Int? = null,
+    val title: String = "",
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val color: Int? = null,
 
 ){
     companion object {
         val noteColor = listOf(RedOrange, LightGreen, Violet, BabyBlue, RedPink)
     }
 }
+
+class InvalidNoteException(message: String):Exception(message)
+
