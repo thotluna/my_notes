@@ -34,6 +34,18 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAddUseCases(repository: NoteRepository): AddNote {
+        return AddNote(repository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGetUseCases(repository: NoteRepository): GetNote {
+        return GetNote(repository)
+    }
+
+    @Provides
+    @Singleton
     fun provideNoteUseCases(repository: NoteRepository): NotesUseCases {
         return NotesUseCases(
             getListNotes = GetListNotes(repository),
