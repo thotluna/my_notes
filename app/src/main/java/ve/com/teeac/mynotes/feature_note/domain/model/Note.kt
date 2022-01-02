@@ -19,5 +19,10 @@ data class Note(
     }
 }
 
-class InvalidNoteException(message: String):Exception(message)
+class InvalidNoteException(message: String):Exception(message){
+    companion object{
+        const val EMPTY_TITLE = "The Title of the note can't be empty"
+        const val EMPTY_CONTENT = "The Content of the note can't be empty"
+    }
+}
 
