@@ -1,12 +1,11 @@
 package ve.com.teeac.mynotes.feature_note.domain.use_cases
 
+import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
-import org.junit.Assert.*
 
 import ve.com.teeac.mynotes.feature_note.data.repository.FakeNotesRepository
-import ve.com.teeac.mynotes.feature_note.domain.model.Note
 import ve.com.teeac.mynotes.feature_note.domain.utils.NotesOrder
 import ve.com.teeac.mynotes.feature_note.domain.utils.OrderType
 
@@ -17,71 +16,58 @@ class GetListNotesTest {
     private var listRepository = repository.listNotes
 
     @Test
-    fun getListNotesOrderByTitleAscending() = runBlocking{
-        val list = getListNotes(NotesOrder.Title(OrderType.Ascending)).first()
+    fun `Order notes by title ascending, correct order`() = runBlocking{
+        val notes = getListNotes(NotesOrder.Title(OrderType.Ascending)).first()
 
-        assertEquals(listRepository.size, list.size)
-        val sorted = listRepository.sortedBy{it.title}
-        val firstNote: Note = sorted.first()
-        assertEquals(firstNote, list.first())
+        for(i in 0..notes.size - 2) {
+            assertThat(notes[i].title).isLessThan(notes[i+1].title)
+        }
     }
 
     @Test
-    fun getListNotesOrderByTitleDescending() = runBlocking{
-        val list = getListNotes(NotesOrder.Title(OrderType.Descending)).first()
+    fun `Order notes by title descending, correct order`() = runBlocking{
+        val notes = getListNotes(NotesOrder.Title(OrderType.Descending)).first()
 
-        assertEquals(listRepository.size, list.size)
-
-        val sorted = listRepository.sortedByDescending { note -> note.title }
-
-        val firstNote: Note = sorted.first()
-
-        assertEquals(firstNote, list.first())
+        for(i in 0..notes.size - 2) {
+            assertThat(notes[i].title).isGreaterThan(notes[i+1].title)
+        }
     }
 
     @Test
-    fun getListNotesOrderByDateAscending() = runBlocking{
-        val list = getListNotes(NotesOrder.Date(OrderType.Ascending)).first()
+    fun `Order notes by date ascending, correct order`() = runBlocking{
+        val notes = getListNotes(NotesOrder.Date(OrderType.Ascending)).first()
 
-        assertEquals(listRepository.size, list.size)
-        val sorted = listRepository.sortedBy{it.timestamp}
-        val firstNote: Note = sorted.first()
-        assertEquals(firstNote, list.first())
+        for(i in 0..notes.size - 2) {
+            assertThat(notes[i].timestamp).isLessThan(notes[i+1].timestamp)
+        }
     }
 
     @Test
-    fun getListNotesOrderByDateDescending() = runBlocking{
-        val list = getListNotes(NotesOrder.Date(OrderType.Descending)).first()
+    fun `Order notes by date descending, correct order`() = runBlocking{
+        val notes = getListNotes(NotesOrder.Date(OrderType.Descending)).first()
 
-        assertEquals(listRepository.size, list.size)
-
-        val sorted = listRepository.sortedByDescending { note -> note.timestamp }
-
-        val firstNote: Note = sorted.first()
-
-        assertEquals(firstNote, list.first())
+        for(i in 0..notes.size - 2) {
+            assertThat(notes[i].timestamp).isGreaterThan(notes[i+1].timestamp)
+        }
     }
 
     @Test
-    fun getListNotesOrderByColorAscending() = runBlocking{
-        val list = getListNotes(NotesOrder.Color(OrderType.Ascending)).first()
+    fun `Order notes by color ascending, correct order`() = runBlocking{
+        val notes = getListNotes(NotesOrder.Color(OrderType.Ascending)).first()
 
-        assertEquals(listRepository.size, list.size)
-        val sorted = listRepository.sortedBy{it.color}
-        val firstNote: Note = sorted.first()
-        assertEquals(firstNote, list.first())
+        for(i in 0..notes.size - 2) {
+            assertThat(notes[i].color).isLessThan(notes[i+1].color)
+        }
     }
 
     @Test
-    fun getListNotesOrderByColorDescending() = runBlocking{
-        val list = getListNotes(NotesOrder.Color(OrderType.Descending)).first()
+    fun `Order notes by color descending, correct order`() = runBlocking{
+        val notes = getListNotes(NotesOrder.Color(OrderType.Descending)).first()
 
-        assertEquals(listRepository.size, list.size)
-
-        val sorted = listRepository.sortedByDescending { note -> note.color }
-
-        val firstNote: Note = sorted.first()
-
-        assertEquals(firstNote, list.first())
+        for(i in 0..notes.size - 2) {
+            assertThat(notes[i].color).isGreaterThan(notes[i+1].color)
+        }
     }
+
+
 }

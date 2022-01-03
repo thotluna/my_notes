@@ -61,9 +61,6 @@ class NotesViewModel @Inject constructor(
                 }
 //                getNoteList(state.value.notesOrder)
             }
-            is NotesEvent.Refresh -> {
-                getNoteList(state.value.notesOrder)
-            }
         }
 
     }

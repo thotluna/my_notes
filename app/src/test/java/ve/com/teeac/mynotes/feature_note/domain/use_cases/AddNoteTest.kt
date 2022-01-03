@@ -1,51 +1,67 @@
 package ve.com.teeac.mynotes.feature_note.domain.use_cases
 
-import kotlinx.coroutines.flow.first
+import com.google.common.truth.Truth.*
+import io.mockk.*
+import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
-import ve.com.teeac.mynotes.feature_note.data.repository.FakeNotesRepository
 import ve.com.teeac.mynotes.feature_note.domain.model.InvalidNoteException
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
+import ve.com.teeac.mynotes.feature_note.domain.repository.NoteRepository
 
 class AddNoteTest{
 
-    private val repository = FakeNotesRepository()
-    private val addNote = AddNote(repository)
-    private val getListNotes = GetListNotes(repository)
+    @MockK
+    private lateinit var repository: NoteRepository
+    private lateinit var addNote: AddNote
+    private val note = Note(
+        title = "New Note",
+        content = "New Not Content",
+    )
+
+    @Before
+    fun setUp(){
+        MockKAnnotations.init(this, relaxUnitFun = true)
+        addNote = AddNote(repository)
+    }
 
     @Test
-    fun addNewNote()= runBlocking {
-        val list = getListNotes().first()
-        val newNote = Note(
-            title = "New Note",
-            content = "New Not Content",
-        )
+    fun `Save Note correctly`()= runBlocking {
 
-        addNote(note = newNote)
+        val noteSlot = slot<Note>()
 
-        val newList = getListNotes().first()
+        coEvery {
+            repository.insertNote(capture(noteSlot))
+        } coAnswers {
+            assertThat(noteSlot.captured).isEqualTo(note)
+        }
 
-        assertEquals(list.size + 1, newList.size)
+        addNote(note)
+
+        coVerify(exactly = 1){repository.insertNote(note)}
+        confirmVerified(repository)
     }
 
     @Test(expected = InvalidNoteException::class)
-    fun addNewNoteWithoutTitle()= runBlocking {
-        val newNote = Note(
-            content = "New Not Content",
-        )
+    fun `Intent save new note without title, exception`()= runBlocking {
+        val newNote = note.copy(title = "")
 
-        addNote(note = newNote)
+        addNote(newNote)
+
+        coVerify(exactly = 0){repository.insertNote(newNote)}
+        confirmVerified(repository)
 
     }
 
     @Test(expected = InvalidNoteException::class)
-    fun addNewNoteWithoutContent()= runBlocking {
-        val newNote = Note(
-            title = "New Not Content"
-        )
+    fun `Intent save new note without content, exception`()= runBlocking {
+        val newNote = note.copy(content = "")
 
-        addNote(note = newNote)
+        addNote(newNote)
+
+        coVerify(exactly = 0){repository.insertNote(newNote)}
+        confirmVerified(repository)
 
     }
 }

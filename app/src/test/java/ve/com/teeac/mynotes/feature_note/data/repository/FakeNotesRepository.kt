@@ -1,11 +1,12 @@
 package ve.com.teeac.mynotes.feature_note.data.repository
 
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
 import ve.com.teeac.mynotes.feature_note.domain.repository.NoteRepository
 
 class FakeNotesRepository: NoteRepository {
+
+
 
 
     var listNotes = mutableListOf(
@@ -32,22 +33,38 @@ class FakeNotesRepository: NoteRepository {
         ),
     )
 
+    private val notesToInsert = mutableListOf<Note>()
+
+    init{
+        ('a'..'z').forEachIndexed { index, c ->
+            notesToInsert.add(
+                Note(
+                    title = c.toString(),
+                    content = c.toString(),
+                    timestamp = index.toLong(),
+                    color = index
+                )
+            )
+        }
+        notesToInsert.shuffle()
+    }
+
     private val flowList = flow {
-            emit(listNotes.toList())
+            emit(notesToInsert.toList())
     }
 
     override fun getNotes()= flowList
 
     override suspend fun getNoteById(id: Int): Note? {
-        return listNotes.find { it.id == id }
+        return notesToInsert.find { it.id == id }
     }
 
     override suspend fun insertNote(note: Note) {
-        listNotes.add(note)
+        notesToInsert.add(note)
     }
 
     override suspend fun deleteNote(note: Note) {
-        listNotes.remove(note)
+        notesToInsert.remove(note)
 
     }
 }

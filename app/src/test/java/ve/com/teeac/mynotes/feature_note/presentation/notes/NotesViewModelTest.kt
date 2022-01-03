@@ -1,14 +1,16 @@
 package ve.com.teeac.mynotes.feature_note.presentation.notes
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import com.google.common.truth.Truth.assertThat
+import io.mockk.*
+import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
 
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import ve.com.teeac.mynotes.feature_note.data.repository.FakeNotesRepository
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
 import ve.com.teeac.mynotes.feature_note.domain.use_cases.*
 import ve.com.teeac.mynotes.feature_note.domain.utils.NotesOrder
@@ -26,158 +28,185 @@ class NotesViewModelTest {
     @get:Rule
     var mainCoroutineRule = MainCoroutineRule()
 
-    private lateinit var repository: FakeNotesRepository
+    @MockK
+    private lateinit var getListNotes: GetListNotes
+    @MockK
+    private lateinit var getNote: GetNote
+    @MockK
+    private lateinit var addNote: AddNote
+    @MockK
+    private lateinit var deleteNotes: DeleteNote
+
     private lateinit var useCases: NotesUseCases
     private lateinit var viewModel: NotesViewModel
     private lateinit var state: NotesState
 
     @Before
     fun setUp() {
-
-        repository = FakeNotesRepository()
+        MockKAnnotations.init(this, relaxUnitFun = true)
         useCases = NotesUseCases(
-            getListNotes = GetListNotes(repository),
-            getNote = GetNote(repository),
-            addNote = AddNote(repository),
-            deleteNotes = DeleteNote(repository)
+            getListNotes = getListNotes,
+            getNote = getNote,
+            addNote = addNote,
+            deleteNotes = deleteNotes
         )
+
+        coEvery {
+            getListNotes(any())
+        } coAnswers {
+            flow { emit(listOf(Note(),Note())) }
+        }
 
         viewModel = NotesViewModel(useCases)
         state= viewModel.state.value
     }
 
     @Test
-    fun viewModelInitial() = runBlocking {
+    fun `State initial of NoteViewModel`() = runBlocking {
 
-        assertEquals(NotesOrder.Date::class, state.notesOrder::class)
-        assertEquals(OrderType.Descending, state.notesOrder.orderType)
-        assertEquals(repository.listNotes.size, state.notes.size)
-        assertFalse(state.isOrderSectionVisible)
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Date::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(OrderType.Descending)
+        assertThat(state.notes.size).isEqualTo(2)
+        assertThat(state.isOrderSectionVisible).isFalse()
 
     }
 
     @Test
-    fun verifyToggleOrderSection() = runBlocking {
+    fun `Send Toggle order section event, Value is false`() = runBlocking {
 
-        assertFalse(state.isOrderSectionVisible)
         viewModel.onEvent(NotesEvent.ToggleOrderSection)
-        state= viewModel.state.value
-        assertTrue(state.isOrderSectionVisible)
-        viewModel.onEvent(NotesEvent.ToggleOrderSection)
-        state= viewModel.state.value
-        assertFalse(state.isOrderSectionVisible)
+        assertThat(viewModel.state.value.isOrderSectionVisible).isTrue()
+    }
+
+
+    @Test
+    fun `Send order event by title ascending, ordered`() = runBlocking {
+
+        val notesOrder = NotesOrder.Title(OrderType.Ascending)
+
+        viewModel.onEvent(NotesEvent.Order(notesOrder))
+        state = viewModel.state.value
+
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Title::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(notesOrder.orderType)
+
+        coVerify(exactly = 2){getListNotes(any())}
+        confirmVerified(getListNotes)
     }
 
     @Test
-    fun orderListByTitleAscending() = runBlocking {
-        viewModel.onEvent(NotesEvent.Order(NotesOrder.Title(OrderType.Ascending)))
+    fun `Send order event by title descending, ordered`() = runBlocking {
+        val notesOrder = NotesOrder.Title(OrderType.Descending)
+
+        viewModel.onEvent(NotesEvent.Order(notesOrder))
         state = viewModel.state.value
 
-        val sorted = repository.listNotes.sortedBy { it.title }
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Title::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(notesOrder.orderType)
 
-        assertEquals(sorted.first().title, state.notes.first().title )
+        coVerify(exactly = 2){getListNotes(any())}
+        confirmVerified(getListNotes)
     }
 
     @Test
-    fun orderListByTitleDescending() = runBlocking {
-        viewModel.onEvent(NotesEvent.Order(NotesOrder.Title(OrderType.Descending)))
+    fun `Send order event by date ascending, ordered`() = runBlocking {
+        val notesOrder = NotesOrder.Date(OrderType.Ascending)
+
+        viewModel.onEvent(NotesEvent.Order(notesOrder))
         state = viewModel.state.value
 
-        val sorted = repository.listNotes.sortedByDescending { it.title }
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Date::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(notesOrder.orderType)
 
-        assertEquals(sorted.first().title, state.notes.first().title )
+        coVerify(exactly = 2){getListNotes(any())}
+        confirmVerified(getListNotes)
     }
 
     @Test
-    fun orderListByDateAscending() = runBlocking {
-        viewModel.onEvent(NotesEvent.Order(NotesOrder.Date(OrderType.Ascending)))
+    fun `Send order event by date descending, don't ordered`() = runBlocking {
+        val notesOrder = NotesOrder.Date(OrderType.Descending)
+
+        viewModel.onEvent(NotesEvent.Order(notesOrder))
         state = viewModel.state.value
 
-        val sorted = repository.listNotes.sortedBy { it.timestamp }
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Date::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(notesOrder.orderType)
 
-        assertEquals(sorted.first().title, state.notes.first().title )
+        coVerify(exactly = 1){getListNotes(any())}
+        confirmVerified(getListNotes)
     }
 
     @Test
-    fun orderListByDateDescending() = runBlocking {
-        viewModel.onEvent(NotesEvent.Order(NotesOrder.Date(OrderType.Descending)))
+    fun `Send order event by color ascending, ordered`() = runBlocking {
+        val notesOrder = NotesOrder.Color(OrderType.Ascending)
+
+        viewModel.onEvent(NotesEvent.Order(notesOrder))
         state = viewModel.state.value
 
-        val sorted = repository.listNotes.sortedByDescending { it.timestamp }
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Color::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(notesOrder.orderType)
 
-        assertEquals(sorted.first().title, state.notes.first().title )
+        coVerify(exactly = 2){getListNotes(any())}
+        confirmVerified(getListNotes)
     }
 
     @Test
-    fun orderListByColorAscending() = runBlocking {
-        viewModel.onEvent(NotesEvent.Order(NotesOrder.Color(OrderType.Ascending)))
+    fun `Send order event by color descending, ordered`() = runBlocking {
+        val notesOrder = NotesOrder.Color(OrderType.Descending)
+
+        viewModel.onEvent(NotesEvent.Order(notesOrder))
         state = viewModel.state.value
 
-        val sorted = repository.listNotes.sortedBy { it.color }
+        assertThat(state.notesOrder::class).isEqualTo(NotesOrder.Color::class)
+        assertThat(state.notesOrder.orderType).isEqualTo(notesOrder.orderType)
 
-        assertEquals(sorted.first().title, state.notes.first().title )
-    }
-
-    @Test
-    fun orderListByColorDescending() = runBlocking {
-        viewModel.onEvent(NotesEvent.Order(NotesOrder.Color(OrderType.Descending)))
-        state = viewModel.state.value
-
-        val sorted = repository.listNotes.sortedByDescending { it.color }
-
-        assertEquals(sorted.first().title, state.notes.first().title )
+        coVerify(exactly = 2){getListNotes(any())}
+        confirmVerified(getListNotes)
     }
 
     @Test
     fun deleteNoteByViewModel() = runBlocking{
-        val itemCount = state.notes.size
-        val note = state.notes.first()
-        viewModel.onEvent(NotesEvent.DeleteNote(note))
 
-        viewModel.onEvent(NotesEvent.Refresh)
-
-        state = viewModel.state.value
-
-        assertEquals(itemCount - 1, state.notes.size)
-        assertNull(repository.getNoteById(note.id!!))
-
-    }
-
-    @Test
-    fun deleteNoteNullByViewModel() = runBlocking{
-        val itemCount = state.notes.size
         val note = Note()
+
+        coEvery {
+            deleteNotes(any())
+        } returns Unit
+
+
         viewModel.onEvent(NotesEvent.DeleteNote(note))
 
-        viewModel.onEvent(NotesEvent.Refresh)
+        coVerify(exactly = 1){getListNotes(any())}
+        coVerify(exactly = 1){deleteNotes(note)}
+        confirmVerified(getListNotes)
+        confirmVerified(deleteNotes)
 
-        state = viewModel.state.value
-
-        assertEquals(itemCount, state.notes.size)
 
     }
 
     @Test
     fun restoreDeleteNoteByViewModel() = runBlocking{
-        val itemCount = state.notes.size
-        val note = state.notes.first()
+
+        val note = Note()
+        coEvery {
+            deleteNotes(note)
+        } returns Unit
+
+        coEvery {
+            addNote(note)
+        } returns Unit
+
         viewModel.onEvent(NotesEvent.DeleteNote(note))
-
-        viewModel.onEvent(NotesEvent.Refresh)
-
-        state = viewModel.state.value
-
-        assertEquals(itemCount - 1, state.notes.size)
-        assertNull(repository.getNoteById(note.id!!))
 
         viewModel.onEvent(NotesEvent.RestoreNote)
 
-        viewModel.onEvent(NotesEvent.Refresh)
 
-        state = viewModel.state.value
-
-        assertEquals(itemCount, state.notes.size)
-        assertNotNull(repository.getNoteById(note.id!!))
+        coVerify(exactly = 1){getListNotes(any())}
+        coVerify(exactly = 1){deleteNotes(note)}
+        coVerify(exactly = 1){addNote(note)}
+        confirmVerified(getListNotes)
+        confirmVerified(deleteNotes)
+        confirmVerified(addNote)
 
     }
 

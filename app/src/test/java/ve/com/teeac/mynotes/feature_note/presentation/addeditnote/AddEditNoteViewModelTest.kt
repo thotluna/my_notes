@@ -3,15 +3,15 @@ package ve.com.teeac.mynotes.feature_note.presentation.addeditnote
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.SavedStateHandle
+import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.junit.Assert.*
+
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import ve.com.teeac.mynotes.feature_note.data.repository.FakeNotesRepository
 import ve.com.teeac.mynotes.feature_note.domain.model.InvalidNoteException
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
 import ve.com.teeac.mynotes.feature_note.domain.use_cases.AddNote
@@ -29,306 +29,273 @@ class AddEditNoteViewModelTest{
     @get:Rule
     var mainCoroutineRule = MainCoroutineRule()
 
-    private lateinit var repository: FakeNotesRepository
     @MockK
     private lateinit var addCases: AddNote
-    private val noteSlot = slot<Note>()
-
     @MockK
     private lateinit var savedStateHandle: SavedStateHandle
-
+    @MockK
     private lateinit var getNoteCase: GetNote
+
     private lateinit var viewModel: AddEditNoteViewModel
+
+    private var note: Note? = null
 
     @Before
     fun setup() {
-        repository = FakeNotesRepository()
-        MockKAnnotations.init(this, relaxUnitFun = true)
-        getNoteCase = GetNote(repository)
-
-        coEvery {
-            savedStateHandle.get<Int>("noteId")
-        }coAnswers {
-            null
-        }
-
-
-        viewModel = AddEditNoteViewModel(addCases, getNoteCase, savedStateHandle)
+        MockKAnnotations.init(
+            this,
+            relaxUnitFun = true
+        )
     }
 
     @Test
-    fun initialTest() = runBlocking {
+    fun `starting viewModel without note`() = runBlocking {
+
+        loadViewModel(null)
+
         val expectedState = NoteTextFieldState()
-        val stateTitle = viewModel.stateTitle.value
-        val stateContent = viewModel.stateContent.value
-        val stateColor = viewModel.stateColor.value
 
-        assertEquals(
-            expectedState.copy(hint = "Please, write your title"),
-            stateTitle
-        )
+        assertThat(viewModel.stateTitle.value)
+            .isEqualTo(expectedState.copy(hint = "Please, write your title"))
 
-        assertEquals(
-            expectedState.copy(hint = "Please, write your Content"),
-            stateContent
-        )
+        assertThat(viewModel.stateContent.value)
+            .isEqualTo(expectedState.copy(hint = "Please, write your Content"))
 
-        assertNotNull(stateColor)
+        assertThat(viewModel.stateColor.value).isNotNull()
+
+        coVerify(exactly = 0){getNoteCase(any())}
+        confirmVerified(getNoteCase)
+
     }
 
     @Test
-    fun enteredTitleTest() = runBlocking {
-        val title = "My Code is clean"
-        val expectedState = NoteTextFieldState().copy(
-            text = title,
-            hint = "Please, write your title"
-        )
+    fun `starting viewModel with note`() = runBlocking {
 
-        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(value = title))
+        val noteId = 1
 
-        assertEquals(
-            expectedState,
-            viewModel.stateTitle.value
-        )
+        loadViewModel(noteId)
+
+        val expectedState = NoteTextFieldState()
+
+        assertThat(viewModel.stateTitle.value)
+            .isEqualTo(
+                expectedState.copy(
+                    text = note!!.title,
+                    hint = "Please, write your title"
+                ))
+
+        assertThat(viewModel.stateContent.value)
+            .isEqualTo(
+                expectedState.copy(
+                    text = note!!.content,
+                    hint = "Please, write your Content"
+                ))
+
+        assertThat(viewModel.stateColor.value)
+            .isEqualTo(note!!.color)
+
+        coVerify(exactly = 1){getNoteCase(noteId)}
+        confirmVerified(getNoteCase)
+
     }
 
     @Test
-    fun enteredTitleTest_OnBlank() = runBlocking {
+    fun `starting viewModel with node id failed`() = runBlocking {
+
+        val noteId = -1
+
+        loadViewModel(noteId)
+
+        coVerify(exactly = 0){getNoteCase(any())}
+        confirmVerified(getNoteCase)
+    }
+
+    @Test
+    fun `write the title, change state title text`() = runBlocking {
         val title = "My Code is clean"
         val expectedState = NoteTextFieldState().copy(
             text = title,
-            hint = "Please, write your title"
+            hint = "Please, write your title",
         )
 
+        loadViewModel(null)
         viewModel.onEvent(AddEditNoteEvent.EnteredTitle(value = title))
 
-        assertEquals(
-            expectedState,
-            viewModel.stateTitle.value
-        )
+        assertThat(viewModel.stateTitle.value).isEqualTo(expectedState)
+    }
+
+    @Test
+    fun `rewrite the title on blank, don't change state title text`() = runBlocking {
+
+        loadViewModel(1)
+
+        assertThat(viewModel.stateTitle.value.text).isEqualTo(note!!.title)
 
         viewModel.onEvent(AddEditNoteEvent.EnteredTitle(value = ""))
 
-        assertEquals(
-            expectedState,
-            viewModel.stateTitle.value
-        )
+        assertThat(viewModel.stateTitle.value.text).isEqualTo(note!!.title)
 
     }
 
     @Test
-    fun enteredContentTest() = runBlocking {
+    fun `write the content, change state title text`() = runBlocking {
         val content = "This is a content the your code clean"
         val expectedState = NoteTextFieldState().copy(
             text = content,
             hint = "Please, write your Content"
         )
 
-        viewModel.onEvent(AddEditNoteEvent.EnteredContent(value = content))
-
-        assertEquals(
-            expectedState,
-            viewModel.stateContent.value
-        )
-    }
-
-    @Test
-    fun changeTitleFocusTest_titleBlank() = runBlocking {
-
-        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.InFocus))
-
-        assertFalse(viewModel.stateTitle.value.isHintVisible)
-
-        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.outFocus))
-
-        assertTrue(viewModel.stateTitle.value.isHintVisible)
-
-    }
-
-    @Test
-    fun changeTitleFocusTest_titleNotBlank() = runBlocking {
-
-        val title = "My clean code"
-
-        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(title))
-
-        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.InFocus))
-
-        assertEquals(true, viewModel.stateTitle.value.isHintVisible)
-
-        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.outFocus))
-
-        assertTrue(viewModel.stateTitle.value.isHintVisible)
-
-    }
-
-    @Test
-    fun enteredContentTest_OnBlank() = runBlocking {
-        val content = "This is a content the your code clean"
-        val expectedState = NoteTextFieldState().copy(
-            text = content,
-            hint = "Please, write your Content"
-        )
+        loadViewModel(null)
 
         viewModel.onEvent(AddEditNoteEvent.EnteredContent(value = content))
 
-        assertEquals(
-            expectedState,
-            viewModel.stateContent.value
-        )
+        assertThat(viewModel.stateContent.value).isEqualTo(expectedState)
+    }
+
+    @Test
+    fun `rewrite the content on blank, don't change state title text`() = runBlocking {
+
+        loadViewModel(1)
+
+        assertThat(viewModel.stateContent.value.text).isEqualTo(note!!.content)
 
         viewModel.onEvent(AddEditNoteEvent.EnteredContent(value = ""))
 
-        assertEquals(
-            expectedState,
-            viewModel.stateContent.value
-        )
+        assertThat(viewModel.stateContent.value.text).isEqualTo(note!!.content)
     }
 
     @Test
-    fun changeTitleFocusTest_contentBlank() = runBlocking {
+    fun `inFocus and outFocus Title blank, change state title isHintVisible`() = runBlocking {
+
+        loadViewModel(null)
+
+        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.InFocus))
+
+        assertThat(viewModel.stateTitle.value.isHintVisible).isFalse()
+
+        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.outFocus))
+
+        assertThat(viewModel.stateTitle.value.isHintVisible).isTrue()
+
+    }
+
+    @Test
+    fun `inFocus and outFocus title, don't change state title isHintVisible`() = runBlocking {
+
+        loadViewModel(1)
+
+        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.InFocus))
+
+        assertThat(viewModel.stateTitle.value.isHintVisible).isTrue()
+
+        viewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(StateFocusFake.outFocus))
+
+        assertThat(viewModel.stateTitle.value.isHintVisible).isTrue()
+
+    }
+
+    @Test
+    fun `inFocus and outFocus content blank, change state title isHintVisible`() = runBlocking {
+
+        loadViewModel(null)
 
         viewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(StateFocusFake.InFocus))
 
-        assertFalse(viewModel.stateContent.value.isHintVisible)
+        assertThat(viewModel.stateContent.value.isHintVisible).isFalse()
 
         viewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(StateFocusFake.outFocus))
 
-        assertTrue(viewModel.stateContent.value.isHintVisible)
+        assertThat(viewModel.stateContent.value.isHintVisible).isTrue()
 
     }
 
     @Test
-    fun changeTitleFocusTest_contentNotBlank() = runBlocking {
+    fun `inFocus and outFocus content, change state title isHintVisible`() = runBlocking {
 
-        val content = "My clean code"
-
-        viewModel.onEvent(AddEditNoteEvent.EnteredContent(content))
+        loadViewModel(1)
 
         viewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(StateFocusFake.InFocus))
 
-        assertTrue(viewModel.stateContent.value.isHintVisible)
+        assertThat(viewModel.stateContent.value.isHintVisible).isTrue()
 
         viewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(StateFocusFake.outFocus))
 
-        assertTrue(viewModel.stateContent.value.isHintVisible)
+        assertThat(viewModel.stateContent.value.isHintVisible).isTrue()
 
     }
 
     @Test
-    fun changeColorTest() = runBlocking {
-        var newColor = Note.noteColor.random().toArgb()
-        viewModel.onEvent(AddEditNoteEvent.ChangeColor(newColor))
-        assertEquals(newColor, viewModel.stateColor.value)
-        newColor = Note.noteColor.random().toArgb()
-        viewModel.onEvent(AddEditNoteEvent.ChangeColor(newColor))
-        assertEquals(newColor, viewModel.stateColor.value)
+    fun `Send new color, change state color`() = runBlocking {
+        loadViewModel(1)
+
+        viewModel.onEvent(AddEditNoteEvent.ChangeColor(Note.noteColor.random().toArgb()))
+
+        assertThat(viewModel.stateColor.value).isNotEqualTo(note!!.color)
     }
 
     @Test
-    fun saveNote_newNote_complete() = runBlocking {
+    fun `save new note, completed`() = runBlocking {
 
-        val note = Note(
-            title = "Saving test 1",
-            content = "intent save first test",
-            color = Note.noteColor.random().toArgb()
-        )
-
-        var timestamp: Long? = null
+        val newNote = getNote()
 
         coEvery {
-            addCases(note = capture(noteSlot))
-        }answers{
-            println(noteSlot)
-            timestamp = noteSlot.captured.timestamp
-        }
+            addCases(any())
+        }returns Unit
 
-        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(note.title))
-        viewModel.onEvent(AddEditNoteEvent.EnteredContent(note.content))
-        viewModel.onEvent(AddEditNoteEvent.ChangeColor(note.color!!))
+        loadViewModel()
+
+        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(newNote.title))
+        viewModel.onEvent(AddEditNoteEvent.EnteredContent(newNote.content))
 
         viewModel.onEvent(AddEditNoteEvent.SaveNote)
 
-        coVerify(exactly = 1) { addCases(note.copy(timestamp = timestamp!!)) }
+        assertThat(viewModel.eventFlow.first()).isEqualTo(UiEvent.SaveNote)
+
+        coVerify(exactly = 1) { addCases(any()) }
 
         confirmVerified(addCases)
 
     }
 
     @Test
-    fun saveNote_existedNote_complete() = runBlocking {
-        val note = Note(
-            id = 1,
-            title = "Saving test 1",
-            content = "intent save first test",
-            color = Note.noteColor.random().toArgb()
-        )
-
-        var timestamp: Long? = null
-        coEvery {
-            savedStateHandle.get<Int>("noteId")
-        }coAnswers {
-            1
-        }
+    fun `update note, completed`() = runBlocking {
 
         coEvery {
-            savedStateHandle.set<Int>("noteId", note.id)
-        }just Runs
+            addCases(any())
+        }returns Unit
 
-
-        coEvery {
-            addCases(note = capture(noteSlot))
-        }answers{
-
-            timestamp = noteSlot.captured.timestamp
-        }
-
-        viewModel = AddEditNoteViewModel(addCases, getNoteCase, savedStateHandle)
-
-        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(note.title))
-        viewModel.onEvent(AddEditNoteEvent.EnteredContent(note.content))
-        viewModel.onEvent(AddEditNoteEvent.ChangeColor(note.color!!))
+        loadViewModel(1)
 
         viewModel.onEvent(AddEditNoteEvent.SaveNote)
 
-        val event = viewModel.eventFlow.first()
+        assertThat(viewModel.eventFlow.first()).isEqualTo(UiEvent.SaveNote)
 
-        assertEquals(
-            UiEvent.SaveNote,
-            event
-        )
-
-        coVerify(exactly = 1) { addCases(note.copy(timestamp = timestamp!!)) }
+        coVerify(exactly = 1) { addCases(any()) }
 
         confirmVerified(addCases)
     }
 
     @Test
-    fun saveNote_newNote_titleBlank() = runBlocking {
+    fun `save new note title in blank, not completed`() = runBlocking {
 
-        val note = Note(
-            title = "",
-            content = "intent save first test",
-            color = Note.noteColor.random().toArgb()
-        )
+        val newNote = getNote().copy(title = "")
 
         coEvery {
-            addCases(note = capture(noteSlot))
+            addCases(any())
         }answers{
             throw InvalidNoteException(InvalidNoteException.EMPTY_TITLE)
         }
 
-        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(note.title))
-        viewModel.onEvent(AddEditNoteEvent.EnteredContent(note.content))
-        viewModel.onEvent(AddEditNoteEvent.ChangeColor(note.color!!))
+        loadViewModel()
+
+        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(newNote.title))
+        viewModel.onEvent(AddEditNoteEvent.EnteredContent(newNote.content))
 
         viewModel.onEvent(AddEditNoteEvent.SaveNote)
 
-        val event = viewModel.eventFlow.first()
-        assertEquals(
-                UiEvent.ShowSnackBar(message = InvalidNoteException.EMPTY_TITLE),
-                event
-            )
+        assertThat(viewModel.eventFlow.first())
+            .isEqualTo(UiEvent.ShowSnackBar(
+                message = InvalidNoteException.EMPTY_TITLE))
 
         coVerify(exactly = 1) { addCases(any()) }
 
@@ -337,35 +304,59 @@ class AddEditNoteViewModelTest{
     }
 
     @Test
-    fun saveNote_newNote_contentBlank() = runBlocking {
-        val note = Note(
-            title = "Saving test 1",
-            content = "",
-            color = Note.noteColor.random().toArgb()
-        )
+    fun `save new note content in blank, not completed`() = runBlocking {
+
+        val newNote = getNote().copy(content = "")
 
         coEvery {
-            addCases(note = capture(noteSlot))
+            addCases(any())
         }answers{
             throw InvalidNoteException(InvalidNoteException.EMPTY_CONTENT)
         }
 
-        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(note.title))
-        viewModel.onEvent(AddEditNoteEvent.EnteredContent(note.content))
-        viewModel.onEvent(AddEditNoteEvent.ChangeColor(note.color!!))
+        loadViewModel()
+
+        viewModel.onEvent(AddEditNoteEvent.EnteredTitle(newNote.title))
+        viewModel.onEvent(AddEditNoteEvent.EnteredContent(newNote.content))
+
 
         viewModel.onEvent(AddEditNoteEvent.SaveNote)
 
-        val event = viewModel.eventFlow.first()
-        assertEquals(
-            UiEvent.ShowSnackBar(message = InvalidNoteException.EMPTY_CONTENT),
-            event
-        )
+        assertThat(viewModel.eventFlow.first())
+            .isEqualTo(UiEvent.ShowSnackBar(
+                message = InvalidNoteException.EMPTY_CONTENT))
 
         coVerify(exactly = 1) { addCases(any()) }
 
         confirmVerified(addCases)
-
     }
 
+    private fun getNote(noteId: Int? = null) =  Note(
+        id = noteId,
+        title = "Saving test 1",
+        content = "intent save first test",
+        color = noteId?.let { Note.noteColor.random().toArgb() }
+    )
+
+    private fun loadViewModel(noteId: Int? = null){
+
+        coEvery {
+            savedStateHandle.get<Int>("noteId")
+        }coAnswers {
+            noteId
+        }
+
+        noteId?.let {
+
+            note = getNote(noteId)
+
+            coEvery {
+                getNoteCase(noteId)
+            }coAnswers {
+                note
+            }
+        }
+
+        viewModel = AddEditNoteViewModel(addCases, getNoteCase, savedStateHandle)
+    }
 }
