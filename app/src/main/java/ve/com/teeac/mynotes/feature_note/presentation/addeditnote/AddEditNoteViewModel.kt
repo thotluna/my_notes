@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -14,12 +15,12 @@ import ve.com.teeac.mynotes.feature_note.domain.model.InvalidNoteException
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
 import ve.com.teeac.mynotes.feature_note.domain.use_cases.AddNote
 import ve.com.teeac.mynotes.feature_note.domain.use_cases.GetNote
+import ve.com.teeac.mynotes.feature_note.domain.use_cases.NotesUseCases
 import javax.inject.Inject
 
 @HiltViewModel
 class AddEditNoteViewModel @Inject constructor(
-    private val addUseCase: AddNote,
-    private val getUseCase: GetNote,
+    private val getUseCases: NotesUseCases,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -54,7 +55,7 @@ class AddEditNoteViewModel @Inject constructor(
         savedStateHandle.get<Int>("noteId")?.let { id ->
             if(id != -1){
                 viewModelScope.launch {
-                    getUseCase(id)?.also { note ->
+                    getUseCases.getNote(id)?.also { note ->
                         currentNoteId = note.id
                         _stateTitle.value = stateTitle.value.copy(text = note.title)
                         _stateContent.value = stateContent.value.copy(text = note.content)
@@ -106,7 +107,7 @@ class AddEditNoteViewModel @Inject constructor(
 
                 viewModelScope.launch{
                     try {
-                        addUseCase(note)
+                        getUseCases.addNote(note)
                         _eventFlow.emit(UiEvent.SaveNote)
                     }catch(e: InvalidNoteException){
                         _eventFlow.emit(

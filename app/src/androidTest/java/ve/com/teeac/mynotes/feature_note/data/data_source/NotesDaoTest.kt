@@ -5,24 +5,25 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.UninstallModules
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.test.runBlockingTest
+import kotlinx.coroutines.test.runTest
 
-import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import javax.inject.Inject
-import javax.inject.Named
-
 import org.junit.Assert.*
 import org.junit.runner.RunWith
+import ve.com.teeac.mynotes.di.AppModule
 
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
+import ve.com.teeac.mynotes.feature_note.domain.repository.NoteRepository
 
 @ExperimentalCoroutinesApi
 @HiltAndroidTest
+@UninstallModules(AppModule::class)
 @SmallTest
 @RunWith(AndroidJUnit4::class)
 class NotesDaoTest {
@@ -34,9 +35,7 @@ class NotesDaoTest {
 
 
     @Inject
-    @Named("test_db")
-    lateinit var database: NotesDatabase
-    private lateinit var notesDao: NotesDao
+    lateinit var repository: NoteRepository
 
     private  var notes = listOf(
         Note(
@@ -56,60 +55,55 @@ class NotesDaoTest {
     )
 
     @Before
-    fun setup() = runBlockingTest {
+    fun setup() = runTest {
         hiltRule.inject()
-        notesDao = database.notesDao
         notes.forEach{ note ->
-            notesDao.insert(note)
+            repository.insertNote(note)
         }
     }
 
-    @After
-    fun tearDown() {
-        database.close()
-    }
 
     @Test
-    fun findById()= runBlockingTest {
-        val noteByDb= notesDao.getNote(notes.first().id!!)
+    fun findById()= runTest {
+        val noteByDb= repository.getNoteById(notes.first().id!!)
         assertEquals(notes.first(), noteByDb)
     }
 
     @Test
-    fun findByIdNotExist()= runBlockingTest {
-        val noteByDb= notesDao.getNote(100)
+    fun findByIdNotExist()= runTest {
+        val noteByDb= repository.getNoteById(100)
         assertEquals(null, noteByDb)
     }
 
 
     @Test
-    fun getAllNotes() = runBlockingTest{
-        val listNotes = notesDao.getAllNotes().first()
+    fun getAllNotes() = runTest{
+        val listNotes = repository.getNotes().first()
 
         assertEquals(notes.size, listNotes.size)
         assertEquals(notes.first(), listNotes.first())
     }
 
     @Test
-    fun getAllNotesEmpty() = runBlockingTest{
+    fun getAllNotesEmpty() = runTest{
         notes.forEach{ note ->
-            notesDao.delete(note)
+            repository.deleteNote(note)
         }
-        val listNotes = notesDao.getAllNotes().first()
+        val listNotes = repository.getNotes().first()
 
         assertEquals(0, listNotes.size)
     }
 
     @Test
-    fun deleteNoteDb() = runBlockingTest{
+    fun deleteNoteDb() = runTest{
 
-        val listNotes = notesDao.getAllNotes().first()
+        val listNotes = repository.getNotes().first()
 
         assertEquals(notes.size, listNotes.size)
 
-        notesDao.delete(listNotes.first())
+        repository.deleteNote(listNotes.first())
 
-        val newListNotes = notesDao.getAllNotes().first()
+        val newListNotes = repository.getNotes().first()
 
         assertEquals(notes.size - 1, newListNotes.size)
     }

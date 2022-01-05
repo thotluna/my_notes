@@ -6,8 +6,9 @@ import ve.com.teeac.mynotes.feature_note.domain.model.Note
 import ve.com.teeac.mynotes.feature_note.domain.repository.NoteRepository
 import ve.com.teeac.mynotes.feature_note.domain.utils.NotesOrder
 import ve.com.teeac.mynotes.feature_note.domain.utils.OrderType
+import javax.inject.Inject
 
-class GetListNotes(
+class GetListNotes @Inject constructor(
     private val repository: NoteRepository
 ) {
 

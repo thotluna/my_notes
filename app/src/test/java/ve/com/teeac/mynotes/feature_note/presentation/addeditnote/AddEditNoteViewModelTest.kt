@@ -14,8 +14,7 @@ import org.junit.Rule
 import org.junit.Test
 import ve.com.teeac.mynotes.feature_note.domain.model.InvalidNoteException
 import ve.com.teeac.mynotes.feature_note.domain.model.Note
-import ve.com.teeac.mynotes.feature_note.domain.use_cases.AddNote
-import ve.com.teeac.mynotes.feature_note.domain.use_cases.GetNote
+import ve.com.teeac.mynotes.feature_note.domain.use_cases.*
 import ve.com.teeac.mynotes.feature_note.utils.MainCoroutineRule
 import ve.com.teeac.mynotes.feature_note.utils.StateFocusFake
 
@@ -30,11 +29,18 @@ class AddEditNoteViewModelTest{
     var mainCoroutineRule = MainCoroutineRule()
 
     @MockK
-    private lateinit var addCases: AddNote
-    @MockK
     private lateinit var savedStateHandle: SavedStateHandle
+
     @MockK
-    private lateinit var getNoteCase: GetNote
+    private lateinit var getListNotes: GetListNotes
+    @MockK
+    private lateinit var getNote: GetNote
+    @MockK
+    private lateinit var addNote: AddNote
+    @MockK
+    private lateinit var deleteNotes: DeleteNote
+
+    private lateinit var useCases: NotesUseCases
 
     private lateinit var viewModel: AddEditNoteViewModel
 
@@ -45,6 +51,12 @@ class AddEditNoteViewModelTest{
         MockKAnnotations.init(
             this,
             relaxUnitFun = true
+        )
+        useCases = NotesUseCases(
+            getListNotes = getListNotes,
+            getNote = getNote,
+            addNote = addNote,
+            deleteNotes = deleteNotes
         )
     }
 
@@ -63,8 +75,8 @@ class AddEditNoteViewModelTest{
 
         assertThat(viewModel.stateColor.value).isNotNull()
 
-        coVerify(exactly = 0){getNoteCase(any())}
-        confirmVerified(getNoteCase)
+        coVerify(exactly = 0){useCases.getNote(any())}
+        confirmVerified(getNote)
 
     }
 
@@ -94,8 +106,8 @@ class AddEditNoteViewModelTest{
         assertThat(viewModel.stateColor.value)
             .isEqualTo(note!!.color)
 
-        coVerify(exactly = 1){getNoteCase(noteId)}
-        confirmVerified(getNoteCase)
+        coVerify(exactly = 1){useCases.getNote(noteId)}
+        confirmVerified(getNote)
 
     }
 
@@ -106,8 +118,8 @@ class AddEditNoteViewModelTest{
 
         loadViewModel(noteId)
 
-        coVerify(exactly = 0){getNoteCase(any())}
-        confirmVerified(getNoteCase)
+        coVerify(exactly = 0){useCases.getNote(any())}
+        confirmVerified(getNote)
     }
 
     @Test
@@ -239,7 +251,7 @@ class AddEditNoteViewModelTest{
         val newNote = getNote()
 
         coEvery {
-            addCases(any())
+            useCases.addNote(any())
         }returns Unit
 
         loadViewModel()
@@ -251,9 +263,9 @@ class AddEditNoteViewModelTest{
 
         assertThat(viewModel.eventFlow.first()).isEqualTo(UiEvent.SaveNote)
 
-        coVerify(exactly = 1) { addCases(any()) }
+        coVerify(exactly = 1) { useCases.addNote(any()) }
 
-        confirmVerified(addCases)
+        confirmVerified(addNote)
 
     }
 
@@ -261,7 +273,7 @@ class AddEditNoteViewModelTest{
     fun `update note, completed`() = runBlocking {
 
         coEvery {
-            addCases(any())
+            useCases.addNote(any())
         }returns Unit
 
         loadViewModel(1)
@@ -270,9 +282,9 @@ class AddEditNoteViewModelTest{
 
         assertThat(viewModel.eventFlow.first()).isEqualTo(UiEvent.SaveNote)
 
-        coVerify(exactly = 1) { addCases(any()) }
+        coVerify(exactly = 1) { useCases.addNote(any()) }
 
-        confirmVerified(addCases)
+        confirmVerified(addNote)
     }
 
     @Test
@@ -281,7 +293,7 @@ class AddEditNoteViewModelTest{
         val newNote = getNote().copy(title = "")
 
         coEvery {
-            addCases(any())
+            useCases.addNote(any())
         }answers{
             throw InvalidNoteException(InvalidNoteException.EMPTY_TITLE)
         }
@@ -297,9 +309,9 @@ class AddEditNoteViewModelTest{
             .isEqualTo(UiEvent.ShowSnackBar(
                 message = InvalidNoteException.EMPTY_TITLE))
 
-        coVerify(exactly = 1) { addCases(any()) }
+        coVerify(exactly = 1) { useCases.addNote(any()) }
 
-        confirmVerified(addCases)
+        confirmVerified(addNote)
 
     }
 
@@ -309,7 +321,7 @@ class AddEditNoteViewModelTest{
         val newNote = getNote().copy(content = "")
 
         coEvery {
-            addCases(any())
+            useCases.addNote(any())
         }answers{
             throw InvalidNoteException(InvalidNoteException.EMPTY_CONTENT)
         }
@@ -326,9 +338,9 @@ class AddEditNoteViewModelTest{
             .isEqualTo(UiEvent.ShowSnackBar(
                 message = InvalidNoteException.EMPTY_CONTENT))
 
-        coVerify(exactly = 1) { addCases(any()) }
+        coVerify(exactly = 1) { useCases.addNote(any()) }
 
-        confirmVerified(addCases)
+        confirmVerified(addNote)
     }
 
     private fun getNote(noteId: Int? = null) =  Note(
@@ -351,12 +363,12 @@ class AddEditNoteViewModelTest{
             note = getNote(noteId)
 
             coEvery {
-                getNoteCase(noteId)
+                useCases.getNote(noteId)
             }coAnswers {
-                note
+                note!!
             }
         }
 
-        viewModel = AddEditNoteViewModel(addCases, getNoteCase, savedStateHandle)
+        viewModel = AddEditNoteViewModel(useCases, savedStateHandle)
     }
 }

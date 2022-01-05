@@ -1,7 +1,9 @@
 package ve.com.teeac.mynotes.feature_note.presentation.notes
 
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,16 +31,24 @@ class NotesViewModel @Inject constructor(
     private var recentlyDeletedNote: Note? = null
 
     init {
-        this.getNoteList(NotesOrder.Date(OrderType.Descending))
+        getNoteList(NotesOrder.Date(OrderType.Descending))
+    }
+
+    @VisibleForTesting
+    fun populateDatabase(){
+        viewModelScope.launch{
+            (1..5).forEach{
+                useCases.addNote(Note(
+                    title = "Title $it",
+                    content = "Content to $5 card",
+                    color = Note.noteColor.random().toArgb()
+                ))
+            }
+        }
     }
 
     fun onEvent(event: NotesEvent) {
         when (event){
-            is NotesEvent.ToggleOrderSection -> {
-                _state.value = state.value.copy(
-                    isOrderSectionVisible = !state.value.isOrderSectionVisible
-                )
-            }
             is NotesEvent.Order -> {
                 if(state.value.notesOrder::class == event.notesOrder::class &&
                     state.value.notesOrder.orderType == event.notesOrder.orderType
@@ -52,17 +62,19 @@ class NotesViewModel @Inject constructor(
                     useCases.deleteNotes(event.note)
                     recentlyDeletedNote = event.note
                 }
-//                getNoteList(state.value.notesOrder)
             }
             is NotesEvent.RestoreNote -> {
                 viewModelScope.launch {
                     useCases.addNote(recentlyDeletedNote ?: return@launch)
                     recentlyDeletedNote = null
                 }
-//                getNoteList(state.value.notesOrder)
+            }
+            is NotesEvent.ToggleOrderSection -> {
+                _state.value = state.value.copy(
+                    isOrderSectionVisible = !state.value.isOrderSectionVisible
+                )
             }
         }
-
     }
 
     private fun getNoteList(notesOrder: NotesOrder) {
